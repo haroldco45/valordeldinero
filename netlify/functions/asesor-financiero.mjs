@@ -1,12 +1,10 @@
-// netlify/functions/asesor-financiero.js
-// Proxy seguro para la IA del Asesor Financiero
-// Mantiene la API key del lado del servidor (variable de entorno)
+// netlify/functions/asesor-financiero.mjs
+// Proxy seguro para la IA del Asesor Financiero (Netlify Function v2)
+// Las credenciales de AI Gateway se inyectan automáticamente en runtime.
 
-const Anthropic = require("@anthropic-ai/sdk");
+import Anthropic from "@anthropic-ai/sdk";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const client = new Anthropic();
 
 const SYSTEM_PROMPT = `Eres un asesor financiero experto y empático especializado en educación financiera para colombianos. Tu objetivo es:
 
@@ -20,23 +18,20 @@ Contexto de la app: El usuario está aprendiendo sobre cómo la inflación reduc
 
 Responde SIEMPRE en español, con ejemplos prácticos y números concretos cuando sea relevante.`;
 
-exports.handler = async (event) => {
+export default async (req) => {
   // Solo POST
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Método no permitido" }),
-    };
+  if (req.method !== "POST") {
+    return Response.json(
+      { error: "Método no permitido" },
+      { status: 405 },
+    );
   }
 
   try {
-    const { pregunta, contexto } = JSON.parse(event.body);
+    const { pregunta, contexto } = await req.json();
 
     if (!pregunta) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Pregunta vacía" }),
-      };
+      return Response.json({ error: "Pregunta vacía" }, { status: 400 });
     }
 
     // Construir mensaje con contexto de la calculadora
@@ -52,7 +47,7 @@ Por favor ayuda a profundizar en este concepto financiero.
     `.trim();
 
     const message = await client.messages.create({
-      model: "claude-haiku-4.5-20250307",
+      model: "claude-haiku-4-5",
       max_tokens: 300,
       system: SYSTEM_PROMPT,
       messages: [
@@ -68,22 +63,22 @@ Por favor ayuda a profundizar en este concepto financiero.
         ? message.content[0].text
         : "No se pudo generar la respuesta.";
 
-    return {
-      statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
+    return Response.json(
+      { respuesta },
+      {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+        },
       },
-      body: JSON.stringify({ respuesta }),
-    };
+    );
   } catch (error) {
     console.error("Error en Asesor IA:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
+    return Response.json(
+      {
         error: "Error del servidor",
         detalle: error.message,
-      }),
-    };
+      },
+      { status: 500 },
+    );
   }
 };
