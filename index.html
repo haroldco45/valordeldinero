@@ -230,10 +230,48 @@
       </div>
     </section>
 
+    <!-- Sección 6: Asesor Financiero IA (Nuevo) -->
+    <section class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-lg space-y-4">
+      <h2 class="text-base font-semibold text-amber-400 flex items-center gap-2">
+        <span>🤖</span> Asesor Financiero IA
+      </h2>
+      <p class="text-xs text-slate-300">
+        Haz preguntas sobre finanzas personales, inversiones, inflación y ahorro. Nuestro asesor IA te ayudará a profundizar en los conceptos.
+      </p>
+
+      <!-- Chat Container -->
+      <div id="chat-container" class="bg-slate-900 rounded-xl border border-slate-700 h-64 overflow-y-auto p-4 space-y-3 mb-3">
+        <div class="flex justify-start">
+          <div class="bg-amber-500/20 text-amber-100 text-xs p-3 rounded-lg max-w-xs border border-amber-500/30">
+            👋 ¡Hola! Soy tu asesor financiero. Pregúntame sobre inflación, poder adquisitivo, inversiones, ahorro o cualquier concepto financiero que no entiendas.
+          </div>
+        </div>
+      </div>
+
+      <!-- Input y Botón -->
+      <div class="flex gap-2">
+        <input 
+          type="text" 
+          id="user-question" 
+          placeholder="Pregunta algo sobre finanzas..."
+          class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition"
+          onkeypress="if(event.key==='Enter') enviarPregunta()"
+        >
+        <button 
+          onclick="enviarPregunta()"
+          class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold px-4 py-2 rounded-xl transition shadow flex items-center gap-1"
+          id="send-btn"
+        >
+          <span>📤</span> Enviar
+        </button>
+      </div>
+      <p class="text-xs text-slate-400 text-center">Powered by Vibras Positivas HM IA</p>
+    </section>
+
   </main>
 
   <footer class="mt-auto py-4 text-center text-xs text-slate-500 border-t border-slate-800">
-    <p>© VIBRAS POSITIVAS HM - Todos los derechos reservados</p>
+    <p>Desarrollada por Vibras Positivas HM — Derechos de Autor Reservados</p>
   </footer>
 
   <!-- Lógica JavaScript y PWA Dinámica -->
@@ -364,6 +402,62 @@
       const blob = new Blob([swCode], { type: 'application/javascript' });
       const swUrl = URL.createObjectURL(blob);
       navigator.serviceWorker.register(swUrl).catch(() => {});
+    }
+
+    // ==================== ASESOR FINANCIERO IA ====================
+    const chatContainer = document.getElementById('chat-container');
+    const userQuestion = document.getElementById('user-question');
+    const sendBtn = document.getElementById('send-btn');
+
+    function agregarMensajeAlChat(texto, esUsuario = false) {
+      const div = document.createElement('div');
+      const alineacion = esUsuario ? 'justify-end' : 'justify-start';
+      const bgColor = esUsuario ? 'bg-blue-600/30 border-blue-500/30 text-blue-100' : 'bg-amber-500/20 border-amber-500/30 text-amber-100';
+      
+      div.className = `flex ${alineacion}`;
+      div.innerHTML = `<div class="${bgColor} text-xs p-3 rounded-lg max-w-xs border">${texto}</div>`;
+      chatContainer.appendChild(div);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    async function enviarPregunta() {
+      const pregunta = userQuestion.value.trim();
+      if (!pregunta) return;
+
+      // Agregar pregunta del usuario al chat
+      agregarMensajeAlChat(pregunta, true);
+      userQuestion.value = '';
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<span>⏳</span> Pensando...';
+
+      try {
+        // Llamar a Netlify Function (ver instrucciones más abajo)
+        const response = await fetch('/.netlify/functions/asesor-financiero', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pregunta: pregunta,
+            contexto: {
+              monto: document.getElementById('amount')?.value || 'no especificado',
+              años: document.getElementById('years')?.value || 'no especificado',
+              inflacion: document.getElementById('inflation')?.value || 'no especificada'
+            }
+          })
+        });
+
+        const data = await response.json();
+        if (data.respuesta) {
+          agregarMensajeAlChat(data.respuesta, false);
+        } else {
+          agregarMensajeAlChat('❌ Error al procesar tu pregunta. Intenta de nuevo.', false);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        agregarMensajeAlChat('⚠️ No hay conexión con el asesor IA. Verifica que la Netlify Function esté configurada.', false);
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<span>📤</span> Enviar';
+      }
     }
   </script>
 </body>
