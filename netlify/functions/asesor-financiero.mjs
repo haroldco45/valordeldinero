@@ -1,12 +1,11 @@
-// netlify/functions/asesor-financiero.js
-// Proxy seguro para la IA del Asesor Financiero
-// Mantiene la API key del lado del servidor (variable de entorno)
+// netlify/functions/asesor-financiero.mjs
+// Asesor Financiero IA — función v2 con Netlify AI Gateway.
+// El AI Gateway inyecta las credenciales de Anthropic en runtime,
+// por eso se usa el constructor zero-config `new Anthropic()`.
 
-const Anthropic = require("@anthropic-ai/sdk");
+import Anthropic from "@anthropic-ai/sdk";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const client = new Anthropic();
 
 const SYSTEM_PROMPT = `Eres un asesor financiero experto y empático especializado en educación financiera para colombianos. Tu objetivo es:
 
@@ -20,26 +19,18 @@ Contexto de la app: El usuario está aprendiendo sobre cómo la inflación reduc
 
 Responde SIEMPRE en español, con ejemplos prácticos y números concretos cuando sea relevante.`;
 
-exports.handler = async (event) => {
-  // Solo POST
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Método no permitido" }),
-    };
+export default async (req) => {
+  if (req.method !== "POST") {
+    return Response.json({ error: "Método no permitido" }, { status: 405 });
   }
 
   try {
-    const { pregunta, contexto } = JSON.parse(event.body);
+    const { pregunta, contexto = {} } = await req.json();
 
     if (!pregunta) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Pregunta vacía" }),
-      };
+      return Response.json({ error: "Pregunta vacía" }, { status: 400 });
     }
 
-    // Construir mensaje con contexto de la calculadora
     const mensajeUsuario = `
 El usuario está trabajando con estos parámetros en la calculadora:
 - Monto: $${contexto.monto} COP
@@ -52,7 +43,7 @@ Por favor ayuda a profundizar en este concepto financiero.
     `.trim();
 
     const message = await client.messages.create({
-      model: "claude-haiku-4.5-20250307",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 300,
       system: SYSTEM_PROMPT,
       messages: [
@@ -68,22 +59,12 @@ Por favor ayuda a profundizar en este concepto financiero.
         ? message.content[0].text
         : "No se pudo generar la respuesta.";
 
-    return {
-      statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
-      body: JSON.stringify({ respuesta }),
-    };
+    return Response.json({ respuesta });
   } catch (error) {
     console.error("Error en Asesor IA:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        error: "Error del servidor",
-        detalle: error.message,
-      }),
-    };
+    return Response.json(
+      { error: "Error del servidor", detalle: error.message },
+      { status: 500 },
+    );
   }
 };
